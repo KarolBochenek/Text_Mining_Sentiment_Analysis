@@ -1,10 +1,10 @@
-# Install
-install.packages("tm")  # for text mining
-install.packages("SnowballC") # for text stemming
-install.packages("wordcloud") # word-cloud generator 
-install.packages("RColorBrewer") # color palettes
-install.packages("syuzhet") # for sentiment analysis
-install.packages("ggplot2") # for plotting graphs
+# If not installed, unhash and install
+# install.packages("tm")  # for text mining
+# install.packages("SnowballC") # for text stemming
+# install.packages("wordcloud") # word-cloud generator 
+# install.packages("RColorBrewer") # color palettes
+# install.packages("syuzhet") # for sentiment analysis
+# install.packages("ggplot2") # for plotting graphs
 # Load
 library("tm")
 library("SnowballC")
@@ -88,7 +88,7 @@ head (d,10)
 #transpose
 td<-data.frame(t(d))
 #The function rowSums computes column sums across rows for each level of a grouping variable.
-td_new <- data.frame(rowSums(td[2:29]))
+td_new <- data.frame(rowSums(td[2:50]))
 #Transformation and cleaning
 names(td_new)[1] <- "count"
 td_new <- cbind("sentiment" = rownames(td_new), td_new)
