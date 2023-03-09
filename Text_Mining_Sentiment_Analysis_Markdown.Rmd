@@ -1,36 +1,143 @@
 ---
 title: "Text mining and sentiment analysis"
-author: "KB"
+author: "Karol Bochenek"
 date: '2023-03-08'
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
-
-```
-
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
+library("tm")
+library("SnowballC")
+library("wordcloud")
+library("RColorBrewer")
+library("syuzhet")
+library("ggplot2")
 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+# Text mining i analiza sentymentalna
 
-```{r wordcloud}
+Text mining, znana również jako eksploracja danych tekstowych (text data mining), to proces przekształcania nieustrukturyzowanego tekstu w ustrukturyzowany format w celu zidentyfikowania znaczących wzorców i nowych spostrzeżeń.
 
+## Text mining
+
+### Ładowanie pliku txt
+Do załadowania pliku txt używamy funkcji: 
+
+```{r loading_txt}
+text <- readLines(file.choose())
+```
+
+summary naszego pliku:
+```{r summary}
+summary(text)
+```
+
+Tworzymy korpus z danych danych
+```{r corpus, echo=TRUE}
+TextDoc <- Corpus(VectorSource(text))
+```
+
+Zamiana "/", "@" and "|" na spację
+
+```{r replacing, echo=TRUE, warning=FALSE}
+#Replacing "/", "@" and "|" with space
+toSpace <- content_transformer(function (x , pattern ) gsub(pattern, " ", x))
+TextDoc <- tm_map(TextDoc, toSpace, "/")
+TextDoc <- tm_map(TextDoc, toSpace, "@")
+TextDoc <- tm_map(TextDoc, toSpace, "\\|")
+```
+
+Teraz, wykorzystamy funkcję **tm_map** do 
+1. Zmiany tekstu na małe litery
+2. Usunięcia liczb
+3. Usunięcia nieistotnych słów-wypełniaczy
+4. Usunięcia interpunkcji
+5. Usunięcia niepotrzebnych odstępów
+6. Przekształcenia słów do ich podstawowej formy, np. fisherman -> fish, finished -> finish
+```{r convert, echo=TRUE, warning=FALSE}
+# Convert the text to lower case
+TextDoc <- tm_map(TextDoc, content_transformer(tolower))
+# Remove numbers
+TextDoc <- tm_map(TextDoc, removeNumbers)
+# Remove english common stopwords
+TextDoc <- tm_map(TextDoc, removeWords, stopwords("english"))
+# Remove punctuations
+TextDoc <- tm_map(TextDoc, removePunctuation)
+# Eliminate extra white spaces
+TextDoc <- tm_map(TextDoc, stripWhitespace)
+# Text stemming - which reduces words to their root form
+TextDoc <- tm_map(TextDoc, stemDocument)
+```
+Budowanie macierzy
+```{r echo=TRUE}
+TextDoc_dtm <- TermDocumentMatrix(TextDoc)
+dtm_m <- as.matrix(TextDoc_dtm)
+```
+Sortowanie
+```{r}
+dtm_v <- sort(rowSums(dtm_m),decreasing=TRUE)
+dtm_d <- data.frame(word = names(dtm_v),freq=dtm_v)
+```
+Wyświetlenie 5 najcześciej występujących słów
+```{r echo=TRUE}
+head(dtm_d, 5)
+```
+Wykreślenie wykresu dla tych 5 słów
+```{r echo=TRUE}
+barplot(dtm_d[1:5,]$freq, las = 2, names.arg = dtm_d[1:5,]$word,
+        col ="lightgreen", main ="Top 5 most frequent words",
+        ylab = "Word frequencies")
+```
+Generowanie wordcloud
+```{r echo=TRUE}
+set.seed(1234)
+wordcloud(words = dtm_d$word, freq = dtm_d$freq, min.freq = 5,
+          max.words=100, random.order=FALSE, rot.per=0.30, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+### Analiza sentymentalna
+
+Słownik squzhet
+```{r echo=TRUE}
+syuzhet_vector <- get_sentiment(text, method="syuzhet")
+# see the first row of the vector
+head(syuzhet_vector)
+# see summary statistics of the vector
+summary(syuzhet_vector)
+```
+Słownik bing
+```{r echo=TRUE}
+bing_vector <- get_sentiment(text, method="bing")
+head(bing_vector)
+summary(bing_vector)
+```
+Słownik affin
+```{r echo=TRUE}
+afinn_vector <- get_sentiment(text, method="afinn")
+head(afinn_vector)
+summary(afinn_vector)
+```
+Funkcja get_nrc_sentiment
+```{r}
+d<-get_nrc_sentiment(text)
+# head(d,10) - to see top 10 lines of the get_nrc_sentiment dataframe
+head (d,10)
+```
+Transpozycja do dataframe
+```{r}
+td<-data.frame(t(d))
+```
+Pozostałe kroki analizy
+```{r echo=TRUE}
+td_new <- data.frame(rowSums(td[2:25]))
+#Transformation and cleaning
+names(td_new)[1] <- "count"
+td_new <- cbind("sentiment" = rownames(td_new), td_new)
+rownames(td_new) <- NULL 
+td_new2<-td_new[1:8,]
+#Plot One - count of words associated with each sentiment
+quickplot(sentiment, data=td_new2, weight=count, geom="bar", fill=sentiment, ylab="count")+ggtitle("Survey sentiments")
 ```
